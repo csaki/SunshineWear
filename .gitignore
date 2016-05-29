@@ -40,5 +40,3 @@ Thumbs.db
 .idea/
 *.iml
 
-# APP KEY
-app/build.gradle
