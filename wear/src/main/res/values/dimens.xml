@@ -12,4 +12,8 @@
 
     <dimen name="digital_y_offset">60dp</dimen>
     <dimen name="digital_date_y_offset">85dp</dimen>
+
+
+    <dimen name="line_y_offset">105dp</dimen>
+    <dimen name="line_length_offset">40dp</dimen>
 </resources>

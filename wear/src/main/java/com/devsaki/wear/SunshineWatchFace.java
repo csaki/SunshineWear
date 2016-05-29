@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -94,12 +95,14 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         Paint mBackgroundPaint;
         Paint mTextPaint;
         Paint mDateTextPaint;
+        Paint mLine;
+        Paint mTemp;
         boolean mAmbient;
-        Calendar mCalendar;
+        TimeZone timeZone = TimeZone.getDefault();
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                mCalendar.setTimeZone(TimeZone.getTimeZone(intent.getStringExtra("time-zone")));
+                timeZone = TimeZone.getTimeZone(intent.getStringExtra("time-zone"));
 
             }
         };
@@ -110,6 +113,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
         float mXDateOffset;
         float mYDateOffset;
+
+        float mLineYOffset;
+        float mLineLengthOffset;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -131,16 +137,22 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
             mYDateOffset = resources.getDimension(R.dimen.digital_date_y_offset);
 
+            mLineYOffset = resources.getDimension(R.dimen.line_y_offset);
+            mLineLengthOffset = resources.getDimension(R.dimen.line_length_offset);
+
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.primary));
 
+            int color = resources.getColor(R.color.digital_text);
+
+            mLine = new Paint();
+            mLine.setColor(color);
+
             mTextPaint = new Paint();
-            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text), NORMAL_TYPEFACE);
+            mTextPaint = createTextPaint(color, NORMAL_TYPEFACE);
 
             mDateTextPaint = new Paint();
-            mDateTextPaint = createTextPaint(resources.getColor(R.color.digital_text), DATE_TYPEFACE);
-
-            mCalendar = Calendar.getInstance();
+            mDateTextPaint = createTextPaint(color, DATE_TYPEFACE);
         }
 
         @Override
@@ -165,7 +177,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
-                mCalendar.setTimeZone(TimeZone.getDefault());
+                timeZone=TimeZone.getDefault();
             } else {
                 unregisterReceiver();
             }
@@ -209,6 +221,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             float textDateSize = resources.getDimension(isRound
                     ? R.dimen.digital_date_text_size_round : R.dimen.digital_date_text_size);
 
+
             mTextPaint.setTextSize(textSize);
             mDateTextPaint.setTextSize(textDateSize);
         }
@@ -242,7 +255,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
 
-            SimpleDateFormat sdf = new SimpleDateFormat("hh:mm");
+            Calendar mCalendar = Calendar.getInstance();
+            mCalendar.setTimeZone(timeZone);
+            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
 
             Date time = mCalendar.getTime();
             String text = sdf.format(time);
@@ -251,6 +266,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             sdf = new SimpleDateFormat("EEE, MMM dd yyyy");
             String dateText = sdf.format(time).toUpperCase();
             canvas.drawText(dateText, mXDateOffset, mYDateOffset, mDateTextPaint);
+
+            canvas.drawLine(bounds.centerX() - mLineLengthOffset/2, mLineYOffset, bounds.centerX() + mLineLengthOffset/2, mLineYOffset, mLine);
+
         }
 
         /**
@@ -319,5 +337,13 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             return R.drawable.art_clouds;
         }
         return -1;
+    }
+
+    private class SunshineBean{
+
+        int max;
+        int min;
+        Bitmap bitmap;
+
     }
 }
