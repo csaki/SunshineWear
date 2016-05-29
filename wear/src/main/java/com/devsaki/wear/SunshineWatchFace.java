@@ -94,6 +94,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         Paint mDateTextPaint;
         Paint mLine;
         Paint mTempText;
+        Paint mBitmapPaint;
         boolean mAmbient;
         TimeZone timeZone = TimeZone.getDefault();
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -109,6 +110,13 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
         float mXDateOffset;
         float mYDateOffset;
+
+
+        int mBitmapXOffset;
+        int mBitmapYOffset;
+
+        int mBitmapWidth;
+        int mBitmapHeight;
 
         float mLineYOffset;
         float mLineLengthOffset;
@@ -138,9 +146,15 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
             mYDateOffset = resources.getDimension(R.dimen.digital_date_y_offset);
             mTempYOffset = resources.getDimension(R.dimen.digital_temp_y_offset);
+            mBitmapYOffset = resources.getDimensionPixelSize(R.dimen.bitmap_y_offset);
 
             mLineYOffset = resources.getDimension(R.dimen.line_y_offset);
             mLineLengthOffset = resources.getDimension(R.dimen.line_length_offset);
+
+            mBitmapWidth = resources.getDimensionPixelSize(R.dimen.bitmap_width);
+            mBitmapHeight = resources.getDimensionPixelSize(R.dimen.bitmap_height);
+
+            mBitmapPaint = new Paint();
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.primary));
@@ -162,6 +176,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             sunshineBean = new SunshineBean();
             sunshineBean.max = 19;
             sunshineBean.min = 19;
+
+            sunshineBean.bitmap = Utility.loadingBitmap(getResources(), 200, mBitmapWidth, mBitmapHeight);
         }
 
         @Override
@@ -225,6 +241,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             mXDateOffset = resources.getDimension(isRound
                     ? R.dimen.digital_date_x_offset: R.dimen.digital_date_x_offset);
+
+            mBitmapXOffset = resources.getDimensionPixelSize(isRound
+                    ? R.dimen.bitmap_x_offset: R.dimen.bitmap_x_offset);
 
             mTempXOffset = resources.getDimension(isRound
                     ? R.dimen.digital_temp_x_offset: R.dimen.digital_temp_x_offset);
@@ -293,8 +312,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 String tempText = String.format("%d° %d°", sunshineBean.max, sunshineBean.min);
                 canvas.drawText(tempText, mTempXOffset, mTempYOffset, mTempText);
 
-                if(isInAmbientMode()){
-
+                if(!isInAmbientMode()){
+                    canvas.drawBitmap(sunshineBean.bitmap, null, new Rect(mBitmapXOffset, mBitmapYOffset, mBitmapXOffset + mBitmapWidth, mBitmapYOffset + mBitmapHeight), mBitmapPaint);
                 }
             }
         }
@@ -330,41 +349,6 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs);
             }
         }
-    }
-
-    /**
-     * Helper method to provide the art resource id according to the weather condition id returned
-     * by the OpenWeatherMap call.
-     * @param weatherId from OpenWeatherMap API response
-     * @return resource id for the corresponding icon. -1 if no relation is found.
-     */
-    public static int getArtResourceForWeatherCondition(int weatherId) {
-        // Based on weather code data found at:
-        // http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
-        if (weatherId >= 200 && weatherId <= 232) {
-            return R.drawable.art_storm;
-        } else if (weatherId >= 300 && weatherId <= 321) {
-            return R.drawable.art_light_rain;
-        } else if (weatherId >= 500 && weatherId <= 504) {
-            return R.drawable.art_rain;
-        } else if (weatherId == 511) {
-            return R.drawable.art_snow;
-        } else if (weatherId >= 520 && weatherId <= 531) {
-            return R.drawable.art_rain;
-        } else if (weatherId >= 600 && weatherId <= 622) {
-            return R.drawable.art_snow;
-        } else if (weatherId >= 701 && weatherId <= 761) {
-            return R.drawable.art_fog;
-        } else if (weatherId == 761 || weatherId == 781) {
-            return R.drawable.art_storm;
-        } else if (weatherId == 800) {
-            return R.drawable.art_clear;
-        } else if (weatherId == 801) {
-            return R.drawable.art_light_clouds;
-        } else if (weatherId >= 802 && weatherId <= 804) {
-            return R.drawable.art_clouds;
-        }
-        return -1;
     }
 
     private class SunshineBean{

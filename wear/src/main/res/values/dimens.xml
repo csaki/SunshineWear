@@ -21,4 +21,11 @@
 
     <dimen name="line_y_offset">105dp</dimen>
     <dimen name="line_length_offset">40dp</dimen>
+
+
+    <dimen name="bitmap_y_offset">110dp</dimen>
+    <dimen name="bitmap_width">40dp</dimen>
+    <dimen name="bitmap_height">40dp</dimen>
+    <dimen name="bitmap_x_offset">25dp</dimen>
+    <dimen name="bitmap_x_offset_round">20dp</dimen>
 </resources>
