@@ -32,7 +32,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
-import android.text.format.Time;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
@@ -49,8 +48,6 @@ import java.util.concurrent.TimeUnit;
  */
 public class SunshineWatchFace extends CanvasWatchFaceService {
     private static final Typeface NORMAL_TYPEFACE =
-            Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
-    private static final Typeface DATE_TYPEFACE =
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
 
     /**
@@ -96,7 +93,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         Paint mTextPaint;
         Paint mDateTextPaint;
         Paint mLine;
-        Paint mTemp;
+        Paint mTempText;
         boolean mAmbient;
         TimeZone timeZone = TimeZone.getDefault();
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -106,7 +103,6 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             }
         };
-        int mTapCount;
 
         float mXOffset;
         float mYOffset;
@@ -116,6 +112,11 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
         float mLineYOffset;
         float mLineLengthOffset;
+
+        float mTempXOffset;
+        float mTempYOffset;
+
+        SunshineBean sunshineBean;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -136,6 +137,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             Resources resources = SunshineWatchFace.this.getResources();
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
             mYDateOffset = resources.getDimension(R.dimen.digital_date_y_offset);
+            mTempYOffset = resources.getDimension(R.dimen.digital_temp_y_offset);
 
             mLineYOffset = resources.getDimension(R.dimen.line_y_offset);
             mLineLengthOffset = resources.getDimension(R.dimen.line_length_offset);
@@ -152,7 +154,14 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             mTextPaint = createTextPaint(color, NORMAL_TYPEFACE);
 
             mDateTextPaint = new Paint();
-            mDateTextPaint = createTextPaint(color, DATE_TYPEFACE);
+            mDateTextPaint = createTextPaint(color, NORMAL_TYPEFACE);
+
+            mTempText = new Paint();
+            mTempText = createTextPaint(color, NORMAL_TYPEFACE);
+
+            sunshineBean = new SunshineBean();
+            sunshineBean.max = 19;
+            sunshineBean.min = 19;
         }
 
         @Override
@@ -216,14 +225,20 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             mXDateOffset = resources.getDimension(isRound
                     ? R.dimen.digital_date_x_offset: R.dimen.digital_date_x_offset);
+
+            mTempXOffset = resources.getDimension(isRound
+                    ? R.dimen.digital_temp_x_offset: R.dimen.digital_temp_x_offset);
             float textSize = resources.getDimension(isRound
                     ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
             float textDateSize = resources.getDimension(isRound
                     ? R.dimen.digital_date_text_size_round : R.dimen.digital_date_text_size);
+            float textTempSize = resources.getDimension(isRound
+                    ? R.dimen.digital_temp_text_size_round : R.dimen.digital_temp_text_size);
 
 
             mTextPaint.setTextSize(textSize);
             mDateTextPaint.setTextSize(textDateSize);
+            mTempText.setTextSize(textTempSize);
         }
 
         @Override
@@ -269,6 +284,19 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             canvas.drawLine(bounds.centerX() - mLineLengthOffset/2, mLineYOffset, bounds.centerX() + mLineLengthOffset/2, mLineYOffset, mLine);
 
+            drawTemp(canvas);
+
+        }
+
+        private void drawTemp(Canvas canvas){
+            if(sunshineBean!=null){
+                String tempText = String.format("%d° %d°", sunshineBean.max, sunshineBean.min);
+                canvas.drawText(tempText, mTempXOffset, mTempYOffset, mTempText);
+
+                if(isInAmbientMode()){
+
+                }
+            }
         }
 
         /**
