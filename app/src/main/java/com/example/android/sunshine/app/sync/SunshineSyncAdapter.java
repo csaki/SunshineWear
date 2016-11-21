@@ -24,6 +24,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.IntDef;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
 import android.text.format.Time;
@@ -36,8 +38,12 @@ import com.example.android.sunshine.app.R;
 import com.example.android.sunshine.app.Utility;
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
+import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.Wearable;
 
@@ -57,7 +63,8 @@ import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
+public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter
+        implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
     public final String LOG_TAG = SunshineSyncAdapter.class.getSimpleName();
     public static final String ACTION_DATA_UPDATED =
             "com.example.android.sunshine.app.ACTION_DATA_UPDATED";
@@ -83,6 +90,21 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     public static final int INDEX_MIN_TEMP = 2;
     public static final int INDEX_SHORT_DESC = 3;
 
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        Log.d(LOG_TAG, "Starting connection");
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+    }
+
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({LOCATION_STATUS_OK, LOCATION_STATUS_SERVER_DOWN, LOCATION_STATUS_SERVER_INVALID, LOCATION_STATUS_UNKNOWN, LOCATION_STATUS_INVALID})
     public @interface LocationStatus {
@@ -95,16 +117,20 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     public static final int LOCATION_STATUS_INVALID = 4;
 
 
-    public static final String PATH = "/SUNSHINE";
-    public static final String DATA_ITEM_LOW = "low";
-    public static final String DATA_ITEM_HIGH = "max";
-    public static final String DATA_ITEM_WEATHER_ID = "weatherId";
+    public static final String PATH = "/sunshine";
 
     private GoogleApiClient mGoogleApiClient;
 
-    public SunshineSyncAdapter(Context context, boolean autoInitialize, GoogleApiClient mGoogleApiClient) {
+    public SunshineSyncAdapter(Context context, boolean autoInitialize) {
         super(context, autoInitialize);
-        this.mGoogleApiClient = mGoogleApiClient;
+        if (mGoogleApiClient == null) {
+            mGoogleApiClient = new GoogleApiClient.Builder(context)
+                    .addApi(Wearable.API)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .build();
+            mGoogleApiClient.connect();
+        }
     }
 
     @Override
@@ -404,41 +430,42 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
         String lastNotificationKey = context.getString(R.string.pref_last_notification);
         long lastSync = prefs.getLong(lastNotificationKey, 0);
 
-        if (System.currentTimeMillis() - lastSync >= DAY_IN_MILLIS) {
-            // Last sync was more than 1 day ago, let's send a notification with the weather.
-            String locationQuery = Utility.getPreferredLocation(context);
+        // Last sync was more than 1 day ago, let's send a notification with the weather.
+        String locationQuery = Utility.getPreferredLocation(context);
 
-            Uri weatherUri = WeatherContract.WeatherEntry.buildWeatherLocationWithDate(locationQuery, System.currentTimeMillis());
+        Uri weatherUri = WeatherContract.WeatherEntry.buildWeatherLocationWithDate(locationQuery, System.currentTimeMillis());
 
-            // we'll query our contentProvider, as always
-            Cursor cursor = context.getContentResolver().query(weatherUri, NOTIFY_WEATHER_PROJECTION, null, null, null);
+        // we'll query our contentProvider, as always
+        Cursor cursor = context.getContentResolver().query(weatherUri, NOTIFY_WEATHER_PROJECTION, null, null, null);
 
-            if (cursor.moveToFirst()) {
-                int weatherId = cursor.getInt(INDEX_WEATHER_ID);
-                double high = cursor.getDouble(INDEX_MAX_TEMP);
-                double low = cursor.getDouble(INDEX_MIN_TEMP);
-                String desc = cursor.getString(INDEX_SHORT_DESC);
+        if (cursor.moveToFirst()) {
+            final int weatherId = cursor.getInt(INDEX_WEATHER_ID);
+            final double high = cursor.getDouble(INDEX_MAX_TEMP);
+            final double low = cursor.getDouble(INDEX_MIN_TEMP);
+            String desc = cursor.getString(INDEX_SHORT_DESC);
 
-                String title = context.getString(R.string.app_name);
+            String title = context.getString(R.string.app_name);
 
-                // Define the text of the forecast.
-                String contentText = String.format(context.getString(R.string.format_notification),
-                        desc,
-                        Utility.formatTemperature(context, high),
-                        Utility.formatTemperature(context, low));
+            // Define the text of the forecast.
+            String contentText = String.format(context.getString(R.string.format_notification),
+                    desc,
+                    Utility.formatTemperature(context, high),
+                    Utility.formatTemperature(context, low));
 
-                mGoogleApiClient.blockingConnect(CONNECTION_TIME_OUT_MS, TimeUnit.MILLISECONDS);
-                if(mGoogleApiClient.isConnected()){
-                    final PutDataMapRequest putRequest = PutDataMapRequest.create(PATH);
-                    final DataMap dataMap = putRequest.getDataMap();
-                    dataMap.putDouble(DATA_ITEM_LOW, low);
-                    dataMap.putDouble(DATA_ITEM_HIGH, high);
-                    dataMap.putInt(DATA_ITEM_WEATHER_ID, weatherId);
-                    Wearable.DataApi.putDataItem(
-                            mGoogleApiClient, putRequest.asPutDataRequest()).await();
+            new Thread() {
+                @Override
+                public void run() {
+                    if (mGoogleApiClient.isConnected()) {
+                        String message = ((int) low) + " " + ((int) high) + " " + weatherId;
+                        NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).await(30, TimeUnit.SECONDS);
+                        for (Node node : nodes.getNodes()) {
+                            Wearable.MessageApi.sendMessage(mGoogleApiClient, node.getId(), PATH, message.getBytes()).await(30, TimeUnit.SECONDS);
+                        }
+                    }
                 }
-                mGoogleApiClient.disconnect();
+            }.start();
 
+            if (System.currentTimeMillis() - lastSync >= DAY_IN_MILLIS) {
                 if (displayNotifications) {
 
                     int iconId = Utility.getIconResourceForWeatherCondition(weatherId);

@@ -22,25 +22,16 @@ import com.google.android.gms.wearable.Wearable;
 
 import java.util.concurrent.TimeUnit;
 
-public class SunshineSyncService extends Service
-        implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
-    public final String LOG_TAG = SunshineSyncService.class.getSimpleName();
+public class SunshineSyncService extends Service{
     private static final Object sSyncAdapterLock = new Object();
     private static SunshineSyncAdapter sSunshineSyncAdapter = null;
-
-    private GoogleApiClient mGoogleApiClient;
 
     @Override
     public void onCreate() {
         Log.d("SunshineSyncService", "onCreate - SunshineSyncService");
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();
         synchronized (sSyncAdapterLock) {
             if (sSunshineSyncAdapter == null) {
-                sSunshineSyncAdapter = new SunshineSyncAdapter(getApplicationContext(), true, mGoogleApiClient);
+                sSunshineSyncAdapter = new SunshineSyncAdapter(getApplicationContext(), true);
             }
         }
     }
@@ -48,20 +39,5 @@ public class SunshineSyncService extends Service
     @Override
     public IBinder onBind(Intent intent) {
         return sSunshineSyncAdapter.getSyncAdapterBinder();
-    }
-
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        Log.d(LOG_TAG, "Starting connection");
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-
-    }
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
     }
 }

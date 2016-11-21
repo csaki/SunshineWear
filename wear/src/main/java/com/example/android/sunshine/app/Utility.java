@@ -1,8 +1,9 @@
-package com.devsaki.wear;
+package com.example.android.sunshine.app;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+
 
 /**
  * Created by devsaki on 28/05/16.
