@@ -27,18 +27,32 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.data.FreezableUtils;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.Wearable;
+
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -46,7 +60,13 @@ import java.util.concurrent.TimeUnit;
  * Digital watch face with seconds. In ambient mode, the seconds aren't displayed. On devices with
  * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
  */
-public class SunshineWatchFace extends CanvasWatchFaceService {
+public class SunshineWatchFace extends CanvasWatchFaceService{
+
+    public static final String PATH = "/SUNSHINE";
+    public static final String DATA_ITEM_LOW = "low";
+    public static final String DATA_ITEM_HIGH = "max";
+    public static final String DATA_ITEM_WEATHER_ID = "weatherId";
+
     private static final Typeface NORMAL_TYPEFACE =
             Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
 
@@ -65,6 +85,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
     public Engine onCreateEngine() {
         return new Engine();
     }
+
 
     private static class EngineHandler extends Handler {
         private final WeakReference<SunshineWatchFace.Engine> mWeakReference;
@@ -86,7 +107,53 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine {
+    private class Engine extends CanvasWatchFaceService.Engine  implements DataApi.DataListener,
+            GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener{
+
+        GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(SunshineWatchFace.this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(Wearable.API)
+                .build();
+
+
+        @Override
+        public void onConnected(@Nullable Bundle bundle) {
+            Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
+        }
+
+        @Override
+        public void onConnectionSuspended(int i) {
+
+        }
+
+        @Override
+        public void onDataChanged(DataEventBuffer dataEventBuffer) {
+            final List<DataEvent> events = FreezableUtils.freezeIterable(dataEventBuffer);
+            for(DataEvent event : events) {
+                final Uri uri = event.getDataItem().getUri();
+                final String path = uri!=null ? uri.getPath() : null;
+                if(PATH.equals(path)) {
+                    final DataMap map = DataMapItem.fromDataItem(event.getDataItem()).getDataMap();
+                    // read your values from map:
+                    int low = map.getInt(DATA_ITEM_LOW);
+                    int high = map.getInt(DATA_ITEM_HIGH);
+                    int weatherId = map.getInt(DATA_ITEM_WEATHER_ID);
+
+                    sunshineBean = new SunshineBean();
+                    sunshineBean.max = high;
+                    sunshineBean.min = low;
+
+                    sunshineBean.bitmap = Utility.loadingBitmap(getResources(), weatherId, mBitmapWidth, mBitmapHeight);
+                }
+            }
+        }
+
+        @Override
+        public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+        }
+
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
@@ -173,11 +240,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             mTempText = new Paint();
             mTempText = createTextPaint(color, NORMAL_TYPEFACE);
 
-            sunshineBean = new SunshineBean();
-            sunshineBean.max = 19;
-            sunshineBean.min = 19;
 
-            sunshineBean.bitmap = Utility.loadingBitmap(getResources(), 200, mBitmapWidth, mBitmapHeight);
         }
 
         @Override
